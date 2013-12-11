@@ -21,16 +21,15 @@
  */
 package org.jboss.jbossas.servermanager.test.startstop.unit;
 
-import org.junit.runner.RunWith;
-import org.junit.runners.Suite;
- 
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.runner.RunWith;
+import org.junit.runners.Suite;
 
 /**
  * StartStopShutdownJarTest
- * 
- * Simple tests to check that the server may be started and stopped, 
+ *
+ * Simple tests to check that the server may be started and stopped,
  * and further that the ServerController may query as to the state
  * of AS; by this tests the legacy shutdown.jar server stop method is
  * used

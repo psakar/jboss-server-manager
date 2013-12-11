@@ -25,6 +25,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -37,7 +38,7 @@ import java.util.StringTokenizer;
 
 /**
  * Starts, stops, and (eventually) reboots server instances.
- * 
+ *
  * @author <a href="ryan.campbell@jboss.com">Ryan Campbell</a>
  * @version $Revision: 82586 $
  */
@@ -45,39 +46,39 @@ public abstract class ServerController
 {
    private static final String SHUTDOWN_CLASS = "org.jboss.Shutdown";
 
-   private static final String MAIN = "org.jboss.Main"; 
-   
-   /**
-    * Name of the system property denoting the location of endorsed libraries 
-    */
-   private static final String SYS_PROP_JAVA_ENDORSED_DIRS = "java.endorsed.dirs";   
+   private static final String MAIN = "org.jboss.Main";
 
    /**
-    * Name of the system property denoting whether XB should allow unordered sequences 
+    * Name of the system property denoting the location of endorsed libraries
+    */
+   private static final String SYS_PROP_JAVA_ENDORSED_DIRS = "java.endorsed.dirs";
+
+   /**
+    * Name of the system property denoting whether XB should allow unordered sequences
     */
    private static final String SYS_PROP_XB_UNORDERED = "xb.builder.useUnorderedSequence";
-   
+
    /**
     * CLI switch denoting a system property will follow
     */
    private static final String SWITCH_SYSPROP = "-D";
-   
+
    /**
     * Character for '='
     */
    private static final char EQUALS = '=';
-   
+
    // delay (in ms) to guarantee that a destroyed process cannot respond with true
    // to ServerController.isServerStarted()
    private static final long PROCESS_DESTROY_DELAY = 45 * 1000 ;
-   
+
    private ServerController()
    {
    }
 
    /**
     * Start the server and pump its output and error streams.
-    * 
+    *
     * @param server
     * @param manager
     * @throws IOException
@@ -105,6 +106,9 @@ public abstract class ServerController
       File binDir = new File(manager.getJBossHome(), "/bin");
       final Process process = Runtime.getRuntime().exec(execCmd, null, binDir);
 
+      new Thread(new ConsoleConsumer(process.getInputStream())).start();
+      new Thread(new ConsoleConsumer(process.getErrorStream())).start();
+
       final BufferedReader errStream = new BufferedReader(new InputStreamReader(process.getErrorStream()));
       final BufferedReader inStream = new BufferedReader(new InputStreamReader(process.getInputStream()));
 
@@ -130,7 +134,7 @@ public abstract class ServerController
        * cause the spawned process' threads to block when this process
        * blocks.  So if uncomment following line, then the ServerTestHarness
        * will block abnormally, thus causing the tests not to run correctly.
-       * 
+       *
        * Is this true for our environment? - rcampbell
        */
       server.setProcess(process);
@@ -145,11 +149,11 @@ public abstract class ServerController
          server.setProcess(null);
          throw e;
       }
-      
+
       System.out.println("Server started.") ;
    }
 
-   /** 
+   /**
     * Delete & create log files
     * @param logFile
     * @throws IOException
@@ -176,9 +180,9 @@ public abstract class ServerController
       }
    }
 
-   /** 
+   /**
     * Create the command line to execute
-    * 
+    *
     * @param server the server
     * @param manager the manager
     * @return the command line
@@ -191,18 +195,18 @@ public abstract class ServerController
       execCmd = execCmd + " " + getEndorsedDirsProperty(manager);
       execCmd = execCmd + " " + getXbUnorderedSequenceProperty();
       execCmd = execCmd + " " + MAIN + " -c " + server.getConfig() + " -b " + server.getHost() + " -g " + server.getPartition();
-      
+
       if (manager.getUdpGroup() != null && ! manager.getUdpGroup().equals(""))
       {
-         execCmd = execCmd + " -u " + manager.getUdpGroup();   
+         execCmd = execCmd + " -u " + manager.getUdpGroup();
       }
       execCmd = execCmd + " " + server.getArgs();
       return execCmd;
    }
-   
+
    /**
     * Obtains the full endorsed dirs property, (ie. "-Djava.endorsed.dirs=/path/to/place")
-    * 
+    *
     * @param manager The {@link ServerManager} to consult in obtaining the location
     *       relative to $JBOSS_HOME
     * @return
@@ -211,7 +215,7 @@ public abstract class ServerController
    {
          return SWITCH_SYSPROP + SYS_PROP_JAVA_ENDORSED_DIRS + EQUALS +manager.getJavaEndorsedDirs();
    }
-   
+
    /**
     * Obtains the unordered XB property, (ie. "-Dxb.builder.useUnorderedSequence=true")
     * @return
@@ -299,10 +303,10 @@ public abstract class ServerController
       return true;
    }
 
-   /** 
+   /**
     * Wait until the jboss instance is full initialized
     * @param server
-    * @param manager 
+    * @param manager
     * @throws IOException
     */
    private static void waitForServer(Server server, ServerManager manager) throws IOException
@@ -317,7 +321,7 @@ public abstract class ServerController
          	closeAllStreams(server.getProcess()) ;
          	server.getErrorWriter().close() ;
          	server.getOutWriter().close() ;
-         	
+
             throw new IOException("Server failed to start; see logs. exit code: " + server.getProcess().exitValue());
          }
 
@@ -335,12 +339,12 @@ public abstract class ServerController
       }
 
       Process process = server.getProcess();
-      
+
   	  // save output and error streams before raising exception (and terminating ant task)
   	  closeAllStreams(server.getProcess()) ;
   	  server.getErrorWriter().close() ;
   	  server.getOutWriter().close() ;
-      
+
       System.err.println("Failed to start server \"" + server.getName()
             + "\" before timeout. Destroying the process.");
       process.destroy();
@@ -350,9 +354,9 @@ public abstract class ServerController
    }
 
    /**
-    * Check if the server is fully intialized by trying to 
+    * Check if the server is fully intialized by trying to
     * open a connection to tomcat.
-    * 
+    *
     * @param server the server
     * @return whether it is started
     * @throws IOException for any error
@@ -407,9 +411,9 @@ public abstract class ServerController
 
    /**
     * Stop the server.
-    * Get thread dump and Process.destroy() the server 
+    * Get thread dump and Process.destroy() the server
     * if it fails to shutdown.
-    * 
+    *
     * @param server
     * @param manager
     * @throws IOException
@@ -421,7 +425,7 @@ public abstract class ServerController
 
       boolean cleanShutdown = true;
       Throwable shutdownException = null;
-		
+
       if (!server.isRunning())
       {
          //throw new IllegalArgumentException("The " + server.getName() + " is not running; it cannot be stopped.");
@@ -479,12 +483,12 @@ public abstract class ServerController
 
          // destroy process and print an error messsage
          process.destroy();
-         
+
          // although the process has been destroyed, we need to wait for it to shutdown
          try {
        	  Thread.sleep(PROCESS_DESTROY_DELAY) ;
          }
-         catch(InterruptedException e) {  
+         catch(InterruptedException e) {
          }
       }
 
@@ -494,7 +498,7 @@ public abstract class ServerController
 
   	  // this affects the value of Server.isStopped()
       server.setProcess(null);
-      
+
       if (!cleanShutdown)
       {
          throw (ServerShutdownException) new ServerShutdownException(
@@ -503,12 +507,12 @@ public abstract class ServerController
             + "Process was destroyed."
             ).initCause(shutdownException);
       }
-      
+
       System.out.println("Server stopped.") ;
    }
 
    /**
-    * Dump Server trace to file 
+    * Dump Server trace to file
     * @param server
     * @throws IOException on faled dump file write
     */
@@ -530,7 +534,7 @@ public abstract class ServerController
             if ( dumpException == null )
             {
                dumpException = (Exception) new RuntimeException("threadDump and dumpException null - something broken").fillInStackTrace();
-               
+
             }
             StringWriter dumpExceptionWriter = new StringWriter(512);
             dumpException.printStackTrace(new PrintWriter(dumpExceptionWriter));
@@ -556,9 +560,9 @@ public abstract class ServerController
    }
 
    /**
-    * Wait for the server to shutdown. 
+    * Wait for the server to shutdown.
     * @param server
-    * @param manager 
+    * @param manager
     * @return true if server process ends before timeout
     */
    private static boolean waitOnShutdown(Server server, ServerManager manager)
@@ -566,7 +570,7 @@ public abstract class ServerController
       int shutdownTimeout = manager.getShutdownTimeout();
       System.out.println("shutdownTimeout will be="+shutdownTimeout);
       for (int tries = 0; tries < shutdownTimeout; tries++)
-      {  
+      {
          try
          {
             if (!server.isRunning())
@@ -585,7 +589,7 @@ public abstract class ServerController
 
    /**
     * Close the streams of a process.
-    * 
+    *
     * @param process
     */
    private static void closeAllStreams(Process process)
@@ -603,15 +607,15 @@ public abstract class ServerController
 
    /**
     * A OutputPumper.  Redirect std err & out to log files.
-    * 
+    *
     * @author <a href="ryan.campbell@jboss.com">Ryan Campbell</a>
     * @version $Revision: 82586 $
     */
    private static class OutputPumper extends Thread
    {
-      private BufferedReader outputReader;
+      private final BufferedReader outputReader;
 
-      private PrintWriter logWriter;
+      private final PrintWriter logWriter;
 
       public OutputPumper(BufferedReader outputReader, PrintWriter logWriter)
       {
@@ -619,6 +623,7 @@ public abstract class ServerController
          this.logWriter = logWriter;
       }
 
+      @Override
       public void run()
       {
          try
@@ -634,4 +639,26 @@ public abstract class ServerController
          }
       }
    }
+
+   private static class ConsoleConsumer implements Runnable {
+     private final InputStream stream;
+
+    ConsoleConsumer(InputStream stream) {
+        this.stream = stream;
+     }
+
+             @Override
+             public void run() {
+                 final BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+                 String line = null;
+                 try {
+                     while ((line = reader.readLine()) != null) {
+                         System.out.println(line);
+                     }
+                 } catch (IOException e) {
+
+                 }
+
+             }
+         }
 }
