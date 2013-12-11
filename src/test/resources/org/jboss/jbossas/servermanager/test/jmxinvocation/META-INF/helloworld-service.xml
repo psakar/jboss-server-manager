@@ -1,0 +1,9 @@
+<!--
+  
+  Descriptor for the "HelloWorld" test MBean
+  
+-->
+
+<mbean
+  code="org.jboss.jbossas.servermanager.test.jmxinvocation.HelloWorld"
+  name="org.jboss.jbossas.servermanager.test.jmxinvocation:service=HelloWorld" />
