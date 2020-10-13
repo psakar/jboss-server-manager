@@ -38,7 +38,7 @@
     <version.org.jboss.logging>2.2.0.CR1</version.org.jboss.logging>
 
     <!-- External -->
-    <version.junit_junit>4.4</version.junit_junit>
+    <version.junit_junit>4.13.1</version.junit_junit>
 
   </properties>
 
